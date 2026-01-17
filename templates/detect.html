@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>টমেটো রোগ নির্ণয় - কৃষি সহায়ক</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
+        body { font-family: 'Hind Siliguri', sans-serif; }
+        .upload-area { border: 3px dashed #10b981; transition: all 0.3s ease; }
+        .upload-area:hover { background-color: #f0fdf4; border-color: #059669; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <nav class="bg-white shadow-sm p-4 sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="/" class="text-green-700 font-bold text-xl flex items-center hover:text-green-800 transition">
+                <i class="fas fa-arrow-left mr-3"></i> ফিরে যান
+            </a>
+            <h1 class="text-xl font-bold text-gray-800">টমেটো রোগ নির্ণয় এআই</h1>
+        </div>
+    </nav>
+
+    <main class="container mx-auto py-10 px-4 max-w-2xl">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+            <div class="text-center mb-8">
+                <div class="bg-yellow-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-microscope text-4xl text-yellow-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">টমেটো পাতার ছবি দিন</h2>
+                <p class="text-gray-500 mt-2">আমাদের এআই আপনার গাছের রোগ শনাক্ত করে সমাধান দেবে।</p>
+            </div>
+
+            <form id="upload-form" class="space-y-6">
+                <div class="upload-area rounded-2xl p-10 text-center cursor-pointer" id="drop-zone">
+                    <input type="file" id="file-input" name="file" class="hidden" accept="image/*">
+                    <div id="preview-container" class="hidden mb-4">
+                        <img id="image-preview" src="#" alt="Preview" class="mx-auto max-h-64 rounded-xl shadow-lg border-4 border-white">
+                    </div>
+                    <div id="upload-prompt">
+                        <i class="fas fa-cloud-upload-alt text-5xl text-green-500 mb-4"></i>
+                        <p class="text-gray-600 font-semibold">এখানে ছবি ড্রপ করুন অথবা ক্লিক করে আপলোড করুন</p>
+                    </div>
+                </div>
+                <button type="submit" id="submit-btn" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition shadow-lg hidden">
+                    রোগ নির্ণয় শুরু করুন
+                </button>
+            </form>
+
+            <div id="loader" class="hidden text-center mt-12 py-10">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-green-600 mb-4"></div>
+                <p class="text-green-600 font-bold">এআই বিশ্লেষণ করছে...</p>
+            </div>
+
+            <div id="result-section" class="mt-12 hidden border-t pt-10">
+                <div class="bg-green-50 rounded-2xl p-8 border border-green-200">
+                    <h3 class="text-lg font-bold text-green-800 mb-3 flex justify-between items-center">
+                        <span><i class="fas fa-check-circle mr-2"></i> ফলাফল:</span>
+                        <span id="confidence-badge" class="bg-green-200 text-green-800 text-xs px-3 py-1 rounded-full"></span>
+                    </h3>
+                    <p id="prediction-text" class="text-3xl font-extrabold text-gray-900 mb-6"></p>
+                    <div class="bg-white rounded-2xl p-6 shadow-md border border-green-100">
+                        <p class="font-bold text-green-700 mb-2">প্রতিকার ও পরামর্শ:</p>
+                        <p id="remedy-text" class="text-gray-700 leading-relaxed"></p>
+                    </div>
+                </div>
+                <button onclick="location.reload()" class="w-full mt-6 text-green-600 font-bold hover:underline">নতুন ছবি আপলোড করুন</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const preview = document.getElementById('image-preview');
+        const previewContainer = document.getElementById('preview-container');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const submitBtn = document.getElementById('submit-btn');
+
+        dropZone.onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
+                    uploadPrompt.classList.add('hidden');
+                    submitBtn.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        document.getElementById('upload-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('result-section').classList.add('hidden');
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/predict_tomato', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    document.getElementById('prediction-text').innerText = data.class;
+                    document.getElementById('remedy-text').innerText = data.remedy;
+                    document.getElementById('confidence-badge').innerText = "Confidence: " + data.confidence;
+                    document.getElementById('result-section').classList.remove('hidden');
+                }
+            } catch (error) {
+                alert("সার্ভার সমস্যা হয়েছে।");
+            } finally {
+                document.getElementById('loader').classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
